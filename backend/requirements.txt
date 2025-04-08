@@ -3,6 +3,6 @@ uvicorn[standard]
 google-cloud-storage
 google-cloud-compute
 google-cloud-resource-manager
-google-cloud-sql-connector[pg8000]
+pg8000
 sqlalchemy
 python-dotenv

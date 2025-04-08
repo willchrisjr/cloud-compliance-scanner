@@ -18,8 +18,9 @@ DB_PASS = os.environ.get("DB_PASS")
 DB_NAME = os.environ.get("DB_NAME")
 # e.g. "project:region:instance"
 INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME")
-# Use public IP for local development if INSTANCE_CONNECTION_NAME is not set
-IP_TYPE = IPTypes.PRIVATE if INSTANCE_CONNECTION_NAME else IPTypes.PUBLIC
+# Always use Public IP for local development unless explicitly configured otherwise
+# In a Cloud Run/App Engine environment with VPC connector, PRIVATE might be appropriate.
+IP_TYPE = IPTypes.PUBLIC
 
 # --- SQLAlchemy Setup ---
 Base = declarative_base()
