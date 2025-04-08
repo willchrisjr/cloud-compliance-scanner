@@ -41,7 +41,7 @@ origins = [
     "http://localhost",
     "http://localhost:3000", # Common React dev port
     "http://localhost:5173", # Common Vite dev port
-    # Add your deployed frontend URL here e.g., "https://your-frontend-app.web.app"
+    "https://gcp-compliance-scanner-456210.web.app" # Deployed Firebase frontend URL
 ]
 
 app.add_middleware(

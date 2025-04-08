@@ -6,3 +6,4 @@ google-cloud-resource-manager
 pg8000
 sqlalchemy
 python-dotenv
+gunicorn
