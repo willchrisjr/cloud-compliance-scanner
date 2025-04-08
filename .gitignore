@@ -1,0 +1,35 @@
+# Python / FastAPI backend
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.env
+backend/.venv
+backend/venv/
+backend/env/
+backend/ENV/
+backend/env.bak
+backend/venv.bak
+backend/.idea/
+backend/.vscode/
+backend/build/
+backend/dist/
+backend/*.egg-info/
+
+# Node / React frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.*
+frontend/.pnp.*
+frontend/.yarn/*
+frontend/coverage/
+frontend/*.log
+frontend/.DS_Store
+frontend/.idea/
+frontend/.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
