@@ -20,7 +20,10 @@ from database import (
 from scanner.checks import (
     check_public_buckets,
     check_firewall_rules,
-    check_iam_bindings
+    check_iam_bindings,
+    check_default_sa_usage,
+    check_unused_resources,
+    check_bucket_logging
 )
 
 # Configure logging
@@ -121,6 +124,15 @@ async def trigger_scan(
 
         logger.info(f"[{project_id}] Checking IAM bindings...")
         all_findings.extend(check_iam_bindings(project_id))
+
+        logger.info(f"[{project_id}] Checking default SA usage...")
+        all_findings.extend(check_default_sa_usage(project_id))
+
+        logger.info(f"[{project_id}] Checking unused resources (disks/IPs)...")
+        all_findings.extend(check_unused_resources(project_id))
+
+        logger.info(f"[{project_id}] Checking bucket logging...")
+        all_findings.extend(check_bucket_logging(project_id))
 
         logger.info(f"[{project_id}] Scan completed. Found {len(all_findings)} potential findings.")
 

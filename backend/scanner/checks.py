@@ -127,6 +127,172 @@ def check_firewall_rules(project_id: str) -> list[dict]:
 
     return findings
 
+def check_default_sa_usage(project_id: str) -> list[dict]:
+    """
+    Checks for Compute Engine instances using the default service account.
+
+    Args:
+        project_id: The GCP project ID to scan.
+
+    Returns:
+        A list of findings for instances using the default service account.
+    """
+    findings = []
+    # Default Compute Engine service account email format
+    default_sa_suffix = f"-compute@developer.gserviceaccount.com"
+
+    try:
+        compute_client = compute_v1.InstancesClient()
+        # Use aggregated list to get instances across all zones
+        agg_list_request = compute_v1.AggregatedListInstancesRequest(project=project_id, include_all_scopes=True)
+        agg_result = compute_client.aggregated_list(request=agg_list_request)
+
+        for zone, response in agg_result:
+            if response.instances:
+                for instance in response.instances:
+                    if instance.service_accounts:
+                        for sa in instance.service_accounts:
+                            # Check if the instance uses the default SA email format
+                            if sa.email and sa.email.endswith(default_sa_suffix):
+                                logger.warning(f"Instance '{instance.name}' in zone '{zone.split('/')[-1]}' uses default service account '{sa.email}'.")
+                                findings.append({
+                                    "resource_type": "Instance",
+                                    "resource_id": f"{zone.split('/')[-1]}/{instance.name}", # Include zone for clarity
+                                    "finding_description": f"Instance uses the default Compute Engine service account ({sa.email}). Consider using a dedicated service account with least privilege.",
+                                    "status": "NonCompliant",
+                                    "gcp_project_id": project_id
+                                })
+                                break # Only report once per instance
+
+    except Forbidden:
+        logger.error(f"Permission denied listing instances for project: {project_id}. Ensure the service account has 'compute.instances.list' permission.")
+        return []
+    except GoogleCloudError as e:
+        logger.error(f"GCP API error listing instances for project {project_id}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error checking default SA usage for project {project_id}: {e}")
+        return []
+
+    return findings
+
+def check_unused_resources(project_id: str) -> list[dict]:
+    """
+    Checks for unattached Compute Engine persistent disks and unassociated
+    static external IP addresses.
+
+    Args:
+        project_id: The GCP project ID to scan.
+
+    Returns:
+        A list of findings for unused disks and IP addresses.
+    """
+    findings = []
+    compute_client = compute_v1.DisksClient()
+    address_client = compute_v1.AddressesClient()
+
+    # Check for unattached disks
+    try:
+        agg_disk_req = compute_v1.AggregatedListDisksRequest(project=project_id, include_all_scopes=True)
+        agg_disks = compute_client.aggregated_list(request=agg_disk_req)
+        for zone, response in agg_disks:
+            if response.disks:
+                for disk in response.disks:
+                    # Disks not attached to any instance
+                    if not disk.users:
+                        logger.warning(f"Found unattached disk: '{disk.name}' in zone '{zone.split('/')[-1]}'.")
+                        findings.append({
+                            "resource_type": "Disk",
+                            "resource_id": f"{zone.split('/')[-1]}/{disk.name}",
+                            "finding_description": "Persistent disk is not attached to any instance.",
+                            "status": "NonCompliant", # Or maybe "Warning" depending on policy
+                            "gcp_project_id": project_id
+                        })
+    except Forbidden:
+        logger.error(f"Permission denied listing disks for project: {project_id}. Ensure 'compute.disks.list' permission.")
+    except GoogleCloudError as e:
+        logger.error(f"GCP API error listing disks for project {project_id}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error checking disks for project {project_id}: {e}")
+
+    # Check for unassociated static external IPs
+    try:
+        agg_addr_req = compute_v1.AggregatedListAddressesRequest(project=project_id, include_all_scopes=True)
+        agg_addresses = address_client.aggregated_list(request=agg_addr_req)
+        for region, response in agg_addresses:
+             if response.addresses:
+                for address in response.addresses:
+                    # Static external IPs not associated with any resource
+                    # Note: Internal IPs might also be relevant depending on context
+                    if address.address_type == compute_v1.Address.AddressType.EXTERNAL and \
+                       address.status == compute_v1.Address.Status.RESERVED and \
+                       not address.users:
+                         logger.warning(f"Found unassociated static external IP: '{address.name}' in region '{region.split('/')[-1]}'.")
+                         findings.append({
+                            "resource_type": "Address",
+                            "resource_id": f"{region.split('/')[-1]}/{address.name}",
+                            "finding_description": "Static external IP address is reserved but not associated with any resource.",
+                            "status": "NonCompliant", # Or "Warning"
+                            "gcp_project_id": project_id
+                         })
+    except Forbidden:
+        logger.error(f"Permission denied listing addresses for project: {project_id}. Ensure 'compute.addresses.list' permission.")
+    except GoogleCloudError as e:
+        logger.error(f"GCP API error listing addresses for project {project_id}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error checking addresses for project {project_id}: {e}")
+
+
+    return findings
+
+def check_bucket_logging(project_id: str) -> list[dict]:
+    """
+    Checks if Cloud Storage buckets have logging enabled.
+
+    Args:
+        project_id: The GCP project ID to scan.
+
+    Returns:
+        A list of findings for buckets without logging enabled.
+    """
+    findings = []
+    try:
+        storage_client = storage.Client(project=project_id)
+        buckets = storage_client.list_buckets()
+
+        for bucket in buckets:
+            try:
+                # Reload bucket metadata to get logging info
+                bucket.reload()
+                if not bucket.logging:
+                    logger.warning(f"Bucket '{bucket.name}' does not have logging enabled.")
+                    findings.append({
+                        "resource_type": "Bucket",
+                        "resource_id": bucket.name,
+                        "finding_description": "Bucket does not have access logging enabled.",
+                        "status": "NonCompliant", # Or "Warning"
+                        "gcp_project_id": project_id
+                    })
+            except Forbidden:
+                 logger.error(f"Permission denied getting details for bucket: {bucket.name} in project {project_id}. Skipping.")
+            except GoogleCloudError as e:
+                logger.error(f"GCP API error getting details for bucket {bucket.name}: {e}. Skipping.")
+            except Exception as e:
+                 logger.error(f"Unexpected error checking logging for bucket {bucket.name}: {e}. Skipping.")
+
+    except Forbidden:
+        logger.error(f"Permission denied listing buckets for project: {project_id}. Ensure 'storage.buckets.list' and 'storage.buckets.get' permissions.")
+        return []
+    except GoogleCloudError as e:
+        logger.error(f"GCP API error listing buckets for project {project_id}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error checking bucket logging for project {project_id}: {e}")
+        return []
+
+    return findings
+
+
 def check_iam_bindings(project_id: str) -> list[dict]:
     """
     Checks for primitive roles (Owner, Editor, Viewer) assigned directly
@@ -153,11 +319,11 @@ def check_iam_bindings(project_id: str) -> list[dict]:
     try:
         # Uses Application Default Credentials (ADC)
         crm_client = resourcemanager_v3.ProjectsClient()
-        policy_request = resourcemanager_v3.GetIamPolicyRequest(
-            resource=f"projects/{project_id}",
-            options=resourcemanager_v3.GetPolicyOptions(requested_policy_version=3)
-        )
-        policy = crm_client.get_iam_policy(request=policy_request)
+        # The get_iam_policy method directly accepts the resource name
+        policy = crm_client.get_iam_policy(resource=f"projects/{project_id}")
+
+        # Ensure policy version 3 features are used if applicable (though bindings structure is standard)
+        # policy.version = 3 # Usually not needed just for reading standard bindings
 
         for binding in policy.bindings:
             role = binding.role

@@ -1,6 +1,6 @@
 # GCP Compliance Scanner
 
-A web application to scan Google Cloud Platform (GCP) projects for common security misconfigurations and display the findings.
+A web application designed to **improve Google Cloud security posture by automatically scanning** GCP projects for common, high-risk security misconfigurations and displaying the findings. It helps teams identify potential vulnerabilities quickly and maintain compliance with security best practices.
 
 ## Architecture
 
@@ -13,6 +13,18 @@ A web application to scan Google Cloud Platform (GCP) projects for common securi
     *   Triggering scans via the backend API.
     *   Displaying compliance findings fetched from the backend API.
 *   **Database:** Cloud SQL for PostgreSQL used to store scan results.
+
+## Features / Checks Implemented
+
+The scanner currently checks for the following potential misconfigurations:
+
+*   Publicly accessible Cloud Storage buckets.
+*   Firewall rules allowing ingress from any source (0.0.0.0/0) on sensitive ports (SSH/22, RDP/3389).
+*   Assignment of primitive IAM roles (Owner, Editor, Viewer) directly to users or non-default service accounts at the project level.
+*   Compute Engine instances using the default Compute Engine service account.
+*   Unattached Compute Engine persistent disks.
+*   Unassociated static external IP addresses.
+*   Cloud Storage buckets with access logging disabled.
 
 ## Prerequisites
 
@@ -40,8 +52,11 @@ These steps configure the necessary GCP resources. Run these `gcloud` commands l
       compute.googleapis.com \
       storage.googleapis.com \
       cloudresourcemanager.googleapis.com \
-      iam.googleapis.com
+      iam.googleapis.com \
+      secretmanager.googleapis.com \
+      artifactregistry.googleapis.com
     ```
+    *(Added Secret Manager and Artifact Registry APIs)*
 
 3.  **Create Cloud SQL Instance (PostgreSQL):**
     ```bash
@@ -91,7 +106,7 @@ These steps configure the necessary GCP resources. Run these `gcloud` commands l
 
     gcloud projects add-iam-policy-binding YOUR_GCP_PROJECT_ID \
       --member="user:your-email@example.com" \
-      --role="roles/storage.admin" # Needed for getIamPolicy on buckets
+      --role="roles/storage.admin" # Needed for getIamPolicy/get on buckets
     ```
 
 ## Local Development Setup
@@ -135,7 +150,7 @@ You need two terminals open.
 1.  **Terminal 1: Run Backend Server:**
     *   Navigate to `backend/`
     *   Activate the virtual environment: `source venv/bin/activate`
-    *   Start the server: `uvicorn main:app --port 8080` (Use `--reload` for development if desired, but ensure dependencies are recognized)
+    *   Start the server: `uvicorn main:app --reload --port 8080`
 
 2.  **Terminal 2: Run Frontend Server:**
     *   Navigate to `frontend/`
@@ -149,3 +164,8 @@ You need two terminals open.
 2.  Click "Run Compliance Scan".
 3.  Wait for the scan to complete.
 4.  View the findings (or lack thereof) in the table.
+
+## Current Status / Next Steps
+
+*   The application is currently deployed with public endpoints for demonstration purposes (Backend: Cloud Run, Frontend: Firebase Hosting). See `DEPLOYMENT.md` for details.
+*   Future enhancements could include adding user authentication (e.g., Firebase Authentication), implementing least-privilege service accounts for the backend, adding more compliance checks, and refining the UI.

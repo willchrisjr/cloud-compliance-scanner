@@ -34,3 +34,5 @@ frontend/.vscode/
 .DS_Store
 Thumbs.db
 frontend/.firebase/hosting.ZGlzdA.cache
+backend/scanner/__pycache__/checks.cpython-312.pyc
+backend/scanner/__pycache__/checks.cpython-312.pyc
