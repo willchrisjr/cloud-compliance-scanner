@@ -58,6 +58,7 @@ app.add_middleware(
 # --- Pydantic Models ---
 class ScanRequest(BaseModel):
     project_id: str = Field(..., description="The GCP Project ID to scan.")
+    checks_to_run: Optional[List[str]] = Field(None, description="List of specific checks to run, e.g., ['public_buckets', 'firewall_rules']. If None or empty, run all.")
 
 class ScanResponse(BaseModel):
     status: str
@@ -113,28 +114,36 @@ async def trigger_scan(
     project_id = scan_request.project_id
     logger.info(f"Received scan request for project: {project_id}")
     all_findings = []
+    checks_requested = scan_request.checks_to_run or [] # Default to empty list if None
+    run_all = not checks_requested or "all" in checks_requested
+
+    # Map check names to functions
+    check_functions = {
+        "public_buckets": check_public_buckets,
+        "firewall_rules": check_firewall_rules,
+        "iam_bindings": check_iam_bindings,
+        "default_sa_usage": check_default_sa_usage,
+        "unused_resources": check_unused_resources,
+        "bucket_logging": check_bucket_logging,
+    }
 
     try:
-        # Run checks sequentially (consider async/parallel execution for performance)
-        logger.info(f"[{project_id}] Checking public buckets...")
-        all_findings.extend(check_public_buckets(project_id))
+        # Run requested checks (or all)
+        for check_name, check_func in check_functions.items():
+            if run_all or check_name in checks_requested:
+                logger.info(f"[{project_id}] Running check: {check_name}...")
+                try:
+                    findings = check_func(project_id)
+                    all_findings.extend(findings)
+                    logger.info(f"[{project_id}] Check '{check_name}' completed, found {len(findings)} findings.")
+                except Exception as check_err:
+                    # Log error for individual check but continue with others
+                    logger.error(f"[{project_id}] Error during check '{check_name}': {check_err}", exc_info=True)
+            else:
+                 logger.info(f"[{project_id}] Skipping check: {check_name} (not requested).")
 
-        logger.info(f"[{project_id}] Checking firewall rules...")
-        all_findings.extend(check_firewall_rules(project_id))
 
-        logger.info(f"[{project_id}] Checking IAM bindings...")
-        all_findings.extend(check_iam_bindings(project_id))
-
-        logger.info(f"[{project_id}] Checking default SA usage...")
-        all_findings.extend(check_default_sa_usage(project_id))
-
-        logger.info(f"[{project_id}] Checking unused resources (disks/IPs)...")
-        all_findings.extend(check_unused_resources(project_id))
-
-        logger.info(f"[{project_id}] Checking bucket logging...")
-        all_findings.extend(check_bucket_logging(project_id))
-
-        logger.info(f"[{project_id}] Scan completed. Found {len(all_findings)} potential findings.")
+        logger.info(f"[{project_id}] Scan completed. Found {len(all_findings)} total potential findings.")
 
         # Store findings in the database
         if all_findings:

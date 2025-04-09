@@ -126,6 +126,84 @@ tbody tr:hover {
   font-weight: bold;
 }
 
+.loading-indicator {
+  margin-top: 1rem;
+  font-style: italic;
+  color: #aaa;
+}
+
+.project-input-container {
+  margin-bottom: 1.5rem;
+}
+
+.check-selector-container {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #555;
+  border-radius: 8px;
+  text-align: left;
+  background-color: #2a2a2a;
+}
+
+.check-selector-container h4 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+}
+
+.check-option {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.check-option input[type="checkbox"] {
+  margin-right: 0.5em;
+  cursor: pointer;
+}
+.check-option label {
+  cursor: pointer;
+}
+.check-option input[type="checkbox"]:disabled + label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+
+.controls-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: #333; /* Light background for controls */
+  border-radius: 8px;
+}
+
+.filter-container input[type="text"] {
+  width: 250px; /* Adjust as needed */
+  margin-right: 0; /* Remove margin if inside flex container */
+}
+
+.controls-container button {
+  margin-left: 1rem; /* Space between filter and clear button */
+}
+
+.table-container {
+  overflow-x: auto; /* Allow horizontal scrolling on small screens */
+}
+
+th {
+  cursor: pointer; /* Indicate headers are clickable */
+  user-select: none; /* Prevent text selection on click */
+}
+
+th:hover {
+  background-color: #444;
+}
+
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -164,5 +242,21 @@ tbody tr:hover {
   .status.error, .error {
     background-color: #f8d7da;
     color: #842029;
+  }
+  .loading-indicator {
+    color: #555;
+  }
+  .controls-container {
+     background-color: #eee;
+  }
+   th:hover {
+    background-color: #ddd;
+  }
+   .check-selector-container {
+    background-color: #f9f9f9;
+    border-color: #ddd;
+  }
+  .check-selector-container h4 {
+    border-bottom-color: #eee;
   }
 }
